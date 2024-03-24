@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+    <script src="phaser.min.js"></script>
+</head>
+<body>
+
+<script>
+    let platforms;
+    let player;
+    let cursors;
+    let bullets;
+    let enemies;
+    let key;
+    let COOL_DOWN_TIME = 100;
+    let lastShotTime = 0;
+    let lastCreateEnemyTime = 0;
+    const CREATE_ENEMY_INTERVAL = 1500;
+    const ENEMY_LIFE = 4
+
+    let shootSound
+    let boomSound
+
+    const game = new Phaser.Game(800, 600, Phaser.CANVAS, '', { preload: preload, create: create, update: update, audio: {
+            disableWebAudio: false
+        }});
+
+    /**
+     * 预加载
+     */
+    function preload() {
+        // 加载资源
+        game.load.image('sky', 'assets/sky.png');
+        game.load.image('bullet', 'assets/bullet.png');
+        game.load.image('zombie', 'assets/zombie.png');
+        game.load.image('boom', 'assets/boom.png');
+        game.load.image('gunner', 'assets/gunner.png');
+        game.load.spritesheet('dude', 'assets/dude.png', 32, 48);
+
+        // 加载音频文件
+        game.load.audio('shootSound', 'assets/shoot.mp3');
+        game.load.audio('boomSound', 'assets/boom-sound.mp3');
+    }
+
+    /**
+     * 初始化
+     */
+    function create() {
+
+        // 设置物理系统
+        game.physics.startSystem(Phaser.Physics.ARCADE);
+        // 添加天空对象
+        game.add.sprite(0, 0, 'sky');
+
+        // 播放音频
+        shootSound = game.sound.add('shootSound');
+        shootSound.volume = 0.1
+
+        // 播放音频
+        boomSound = game.sound.add('boomSound');
+        boomSound.volume = 0.5
+
+        player = game.add.sprite(game.world.width/2, game.world.height - 50, 'gunner');
+        game.physics.arcade.enable(player);
+
+        platforms = game.add.group();
+        platforms.enableBody = true;
+
+
+        player.body.collideWorldBounds = true;
+
+        // 创建方向键
+        cursors = game.input.keyboard.createCursorKeys();
+
+        key = game.input.keyboard.addKey(Phaser.Keyboard.A);
+
+
+        bullets = game.add.group();
+        enemies = game.add.group();
+        enemies.enableBody = true;
+        bullets.enableBody = true;
+    }
+
+    /**
+     * 游戏循环
+     */
+    function update() {
+
+        // 设置碰撞事件
+        game.physics.arcade.overlap(enemies, bullets, hitEnemy, null, this);
+        game.physics.arcade.overlap(player, enemies, hitPlayer, null, this);
+
+        player.body.velocity.x = 0;
+        player.body.velocity.y = 0;
+        //不同按钮播放不同的动画
+        if (cursors.left.isDown) {
+            player.body.velocity.x = -150;
+            // player.animations.play('left');
+        } else if (cursors.right.isDown) {
+            player.body.velocity.x = 150;
+            // player.animations.play('right');
+        } else if (cursors.up.isDown) {
+            player.body.velocity.y = -150;
+            // player.animations.stop();
+            player.frame = 4;
+        } else if (cursors.down.isDown) {
+            player.body.velocity.y = 150;
+            // player.animations.stop();
+            player.frame = 4;
+        } else {
+            player.animations.stop();
+        }
+
+        if (isCoolDown()) {
+            console.log(222)
+            let bullet = bullets.create(player.body.x + 10, player.body.y, 'bullet')
+            bullet.scale.setTo(0.5, 0.5)
+            bullet.body.velocity.y = -180
+
+            lastShotTime = new Date().getTime()
+            shootSound.play();
+        }
+
+        if (key.isDown) {
+            COOL_DOWN_TIME -= 50;
+        }
+
+        if (canCreateEnemy()) {
+            const x = (game.world.width/2 -150) + (300 * Math.random());
+            let enemy = enemies.create(x, -100, 'zombie')
+            enemy.body.velocity.y = 120
+            enemy.life = ENEMY_LIFE
+            lastCreateEnemyTime = new Date().getTime()
+        }
+    }
+
+    function canCreateEnemy() {
+        return new Date().getTime() - CREATE_ENEMY_INTERVAL > lastCreateEnemyTime;
+    }
+
+    function isCoolDown() {
+        return new Date().getTime() - COOL_DOWN_TIME > lastShotTime;
+    }
+
+    function hitEnemy(enemy, bullet) {
+        if (enemy.life > 0) {
+            enemy.life--
+        } else {
+            enemy.kill()
+        }
+        bullet.kill()
+        let boom = game.add.image(bullet.body.x - 10, bullet.body.y - 5, 'boom')
+        boomSound.play()
+        // boom.scale.setTo(0.2, 0.2)
+        // 在1秒后销毁图片
+        setTimeout(() => {
+            boom.kill();
+        }, 400);
+
+    }
+
+
+    function hitPlayer(player, enemies) {
+        player.kill()
+    }
+
+</script>
+</body>
+</html>
